@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import re
 import sys
 import os
 
@@ -36,7 +37,7 @@ LANGS_FILE = os.path.join(REPO_ROOT, "NLLB-inference", "langs_extra.txt")
 
 def load_langs(langs_file):
     with open(langs_file) as f:
-        return f.read().strip()
+        return f.read().strip().split(",")
 
 
 def build_generator(args, task, models):
@@ -69,9 +70,11 @@ def translate(text, sp, task, models, generator, src_lang, tgt_lang, beam=5, max
         }
     }
 
-    # Generate translation
-    with torch.no_grad():
-        hypos = generator.generate(models, sample)
+    # Generate translation using task.inference_step, which forces the correct
+    # target language token (__hch_Latn__) as the decoder prefix. Without this,
+    # the decoder freely picks a language and can produce wrong-language output
+    # (e.g. __shp_Latn__ for Shipibo-Konibo instead of Wixarika).
+    hypos = task.inference_step(generator, models, sample)
 
     # Decode the best hypothesis
     best_hypo = hypos[0][0]
@@ -83,6 +86,8 @@ def translate(text, sp, task, models, generator, src_lang, tgt_lang, beam=5, max
 
     # Remove target language token if present
     hypo_str = hypo_str.replace(f"__{tgt_lang}__", "").strip()
+    # Defensively remove any other language tokens that might slip through
+    hypo_str = re.sub(r"__\w+__", "", hypo_str).strip()
 
     # Detokenize with SentencePiece
     pieces = hypo_str.split()
@@ -110,17 +115,35 @@ def main():
     task_args = argparse.Namespace(
         task="translation_multi_simple_epoch",
         langs=langs,
+        lang_dict=None,
         lang_pairs=f"{SRC_LANG}-{TGT_LANG}",
         fixed_dictionary=DICT_PATH,
+        source_dict=None,
+        target_dict=None,
         source_lang=SRC_LANG,
         target_lang=TGT_LANG,
         encoder_langtok="src",
         decoder_langtok=True,
+        lang_tok_replacing_bos_eos=False,
         sampling_method="temperature",
         sampling_temperature="1",
         data="",
         left_pad_source=True,
         left_pad_target=False,
+        langtoks=None,
+        langtoks_specs=["main"],
+        extra_data=None,
+        extra_lang_pairs=None,
+        lang_tok_style="multilingual",
+        add_data_source_prefix_tags=True,
+        add_ssl_task_tokens=False,
+        finetune_dict_specs=None,
+        shuffle_instance=False,
+        virtual_epoch_size=None,
+        virtual_data_size=None,
+        eval_lang_pairs=None,
+        seed=1,
+        pad_to_fixed_length=False,
     )
 
     task = tasks.setup_task(task_args)
@@ -166,7 +189,8 @@ def main():
     # Translate based on input mode
     if args.text:
         result = do_translate(args.text)
-        print(result)
+        print(f"[ES]  {args.text}")
+        print(f"[HCH] {result}")
 
     elif args.input:
         out_file = open(args.output, "w") if args.output else sys.stdout
@@ -178,7 +202,8 @@ def main():
                     continue
                 result = do_translate(line)
                 print(result, file=out_file)
-                print(f"Translated line {i + 1}", file=sys.stderr)
+                print(f"[{i + 1}] [ES]  {line}", file=sys.stderr)
+                print(f"[{i + 1}] [HCH] {result}", file=sys.stderr)
         if args.output:
             out_file.close()
 
@@ -191,7 +216,8 @@ def main():
                 if not line:
                     continue
                 result = do_translate(line)
-                print(result)
+                print(f"[ES]  {line}")
+                print(f"[HCH] {result}")
                 sys.stdout.flush()
         except EOFError:
             pass

@@ -1,2 +1,7 @@
 CLAUDE.md
 Sheffield's Submission to the AmericasNLP Shared Task on Machine Translation into Indigenous Languages.pdf
+2023.americasnlp-1.21.pdf
+__pycache__/
+*.so
+*.cpp
+*.pt

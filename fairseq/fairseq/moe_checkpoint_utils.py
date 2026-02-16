@@ -12,7 +12,10 @@ from typing import Dict, List
 
 import numpy as np
 import torch
-from fairscale.nn.data_parallel.fsdp_optim_utils import is_singleton_tensor
+try:
+    from fairscale.nn.data_parallel.fsdp_optim_utils import is_singleton_tensor
+except ImportError:
+    is_singleton_tensor = None
 
 from fairseq import distributed_utils
 from fairseq.file_io import torch_load_cpu
