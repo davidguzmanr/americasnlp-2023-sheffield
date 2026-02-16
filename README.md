@@ -14,15 +14,45 @@ cd fairseq
 pip install --editable .
 ```
 
-This version of fairseq extends the embeddings of NLLB to cover the additional language tags, and reports ChrF++ at every valid interval. 
+This version of fairseq extends the embeddings of NLLB to cover the additional language tags, and reports ChrF++ at every valid interval.
 
-Then, process_data.sh can be used to download and process all of the training and evaluation data. 
+Then, process_data.sh can be used to download and process all of the training and evaluation data.
 
 train-models-2023/ contains scripts for running our experiments for our submission to the 2023 shared task. Submission 3 is trained using the script: train-nllb-1.3B-unfreeze-everything-all-pairs-seed-1-sampling-3-detok-train1M.sh
 
 ## Generation
 
-Afer training, the 2023 dev set can be translated using translate-dev-best-single.sh in generate-dev-2023/. 
+Afer training, the 2023 dev set can be translated using translate-dev-best-single.sh in generate-dev-2023/.
+
+## Inference: Translating Spanish to Wixarika (Huichol)
+
+### Installation
+
+```bash
+pip install -r requirements.txt
+pip install -e fairseq/
+```
+
+You will need a C++ compiler and CUDA toolkit for fairseq's native extensions.
+
+### Usage
+
+Download a trained checkpoint (e.g., `submission_3.pt`) from the link above, then run:
+
+```bash
+# Translate a single sentence
+python translate_es_hch.py --checkpoint submission_3.pt --text "Hola, ¿cómo estás?"
+
+# Translate from a file (one sentence per line)
+python translate_es_hch.py --checkpoint submission_3.pt --input input.txt --output output.txt
+
+# Interactive mode (type sentences, Ctrl+D to exit)
+python translate_es_hch.py --checkpoint submission_3.pt
+```
+
+Options:
+- `--beam N` — Beam size for decoding (default: 5)
+- `--cpu` — Force CPU inference if no GPU is available
 
 ## Citation
 
